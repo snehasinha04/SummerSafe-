@@ -17,135 +17,80 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(static_path));
 
-
 app.use(session({
     secret: 'your-secret-key',
     resave: false,
     saveUninitialized: true
 }));
 
-app.set("view engine", "hbs")
-app.set("views", template_path)
+app.set("view engine", "hbs");
+app.set("views", template_path);
 hbs.registerPartials(partials_path);
 
 app.get("/", (req, res) => {
-    res.render("index")
+    res.render("index");
 });
 
 app.get("/login", (req, res) => {
-    res.render("login")
+    res.render("login");
 });
 
 app.get("/register", (req, res) => {
-    res.render("register")
+    res.render("register");
 });
 
 app.get("/partner", (req, res) => {
-    res.render("partner")
+    res.render("partner");
 });
 
 app.get("/booking-summary", (req, res) => {
-    res.render("order-summary")
-});
-app.get("/order-success",(req,res)=>{
-    res.render("order-success")
-})
-app.get("/contact",(req,res)=>{
-    res.render("contact")
+    res.render("order-summary");
 });
 
+app.get("/order-success", (req, res) => {
+    res.render("order-success");
+});
+
+app.get("/contact", (req, res) => {
+    res.render("contact");
+});
 
 app.get("/profile", async (req, res) => {
     try {
-        // Retrieve user's email from session
         const userEmail = req.session.userEmail;
         if (!userEmail) {
             return res.status(404).send("User not found");
         }
 
-        // Find user in the database based on the email
         const user = await Register.findOne({ email: userEmail });
         if (!user) {
             return res.status(404).send("User not found");
         }
+
         const bookings = await Booking.find({ userEmail: userEmail });
-        // Render profile page with user data
-        res.render("profile", { userData: user,bookings:bookings });
+        res.render("profile", { userData: user, bookings: bookings });
     } catch (error) {
         console.log("Error fetching user data:", error);
         res.status(500).send("Internal Server Error");
     }
 });
 
-const { TableClient, AzureNamedKeyCredential } = require("@azure/data-tables");
-
-require('dotenv').config();
-const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
-// Azure Table Storage config
-const account = "summersafestorageaccount";
-const tableName = "Users"; // your table name
-require('dotenv').config();
-console.log('Azure Storage Account Key:', process.env.AZURE_STORAGE_ACCOUNT_KEY);  // Check if the key is loaded
-
-
-const credential = new AzureNamedKeyCredential(account, accountKey);
-const client = new TableClient(
-  `https://${account}.table.core.windows.net`,
-  tableName,
-  credential
-);
-
-// Function to get all users from Azure Table Storage
-async function getAllUsers() {
-    try {
-        const users = [];
-        for await (const entity of client.listEntities()) {
-            users.push(entity); // Store each entity (user) in the users array
-        }
-        return users;
-    } catch (error) {
-        console.error("Error fetching users from Table Storage:", error);
-        throw new Error("Failed to retrieve users from Azure Table Storage");
-    }
-}
-
-// POST route to register a user
 app.post("/register", async (req, res) => {
     try {
         const { email, password, confirmpassword, mobile } = req.body;
 
         if (password === confirmpassword) {
-            // Save to MongoDB
             const registerUser = new Register({
-                email: email,
-                password: password,
-                confirmpassword: confirmpassword,
-                mobile: mobile
+                email,
+                password,
+                confirmpassword,
+                mobile
             });
 
             const registered = await registerUser.save();
-            console.log("User registered Successfully in MongoDB:", registered);
+            console.log("User registered successfully:", registered);
 
-            // Save to Azure Table Storage
-            const userEntity = {
-                partitionKey: "User",  // you can keep it fixed for all users
-                rowKey: email,         // email as unique ID
-                email: email,
-                password: password,
-                mobile: mobile
-            };
-
-            await client.createEntity(userEntity);
-            console.log("User stored in Azure Table Storage");
-
-            // Get all users from Azure Table Storage and log them
-            const users = await getAllUsers();
-            console.log("All users in Azure Table Storage:", users);
-
-            // Store user's email in session
             req.session.userEmail = email;
-
-            // Redirect to profile page after successful registration
             res.status(201).redirect("/");
         } else {
             console.log("Passwords do not match");
@@ -157,61 +102,42 @@ app.post("/register", async (req, res) => {
     }
 });
 
-
-
 app.post("/login", async (req, res) => {
     try {
         const email = req.body.email;
         const password = req.body.password;
-        console.log(`${email} and password is ${password}`);
 
-        // Find user in the database based on the email
         const user = await Register.findOne({ email: email });
 
-        // If user does not exist, return error
         if (!user) {
             return res.status(404).send("User not found");
         }
 
-        // Check if the entered password matches the stored password
         if (user.password === password) {
-            // Store user's email in session
             req.session.userEmail = email;
-
-            // Redirect to index page after successful login
             return res.status(201).redirect("/");
         } else {
             return res.status(401).send("Passwords do not match");
         }
-
     } catch (error) {
         console.log("Error during login:", error);
         res.status(500).send("Internal Server Error");
     }
 });
 
+const PRICE_PER_LUGGAGE = 10;
 
-// Define the price per luggage item
-const PRICE_PER_LUGGAGE = 10; 
-
-// POST route for handling the form submission
 app.post('/booking-summary', async (req, res) => {
     try {
-        // Extract data from the request body
         const { location, checkInDate, checkOutDate, luggageItems } = req.body;
 
-        // Calculate the number of days between check-in and check-out dates
         const checkIn = new Date(checkInDate);
         const checkOut = new Date(checkOutDate);
         const numberOfDays = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
 
-        // Calculate the total price
         const totalPrice = numberOfDays * luggageItems * PRICE_PER_LUGGAGE;
-
-        // Get the user's email from the session
         const userEmail = req.session.userEmail;
 
-        // Create a new booking document
         const booking = new Booking({
             userEmail,
             location,
@@ -221,21 +147,17 @@ app.post('/booking-summary', async (req, res) => {
             totalPrice
         });
 
-        // Save the booking document to the database
         await booking.save();
         const user = await Register.findOne({ email: userEmail });
-
-        // Push the booking details into the user's profile
         user.bookings.push(booking);
         await user.save();
 
-        // Render the order-summary template with the data
-        res.render('booking-summary', { 
+        res.render('booking-summary', {
             orderSummary: {
                 location,
                 checkInDate,
                 checkOutDate,
-                luggageItems,
+                luggageItems
             },
             numberOfDays,
             totalPrice
@@ -246,12 +168,12 @@ app.post('/booking-summary', async (req, res) => {
     }
 });
 
-
 app.post('/checkout', async (req, res) => {
     res.redirect('/order-success');
 });
 
-
 app.listen(port, () => {
-    console.log(`server is running at port no ${port}`)
+    console.log(`server is running at port no ${port}`);
 });
+
+
