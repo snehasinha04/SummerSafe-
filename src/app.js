@@ -3,7 +3,7 @@ const path = require("path");
 const exphbs = require('express-handlebars');
 const session = require('express-session');
 const Register = require("./models/registers");
-const Booking = require("./models/booking"); // Require 
+const Booking = require("./models/booking"); // Require the 
 const app = express();
 const hbs = require("hbs");
 require("./db/conn");
