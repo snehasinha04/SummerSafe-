@@ -172,7 +172,18 @@ app.post('/checkout', async (req, res) => {
     res.redirect('/order-success');
 });
 
-app.listen(port, () => {
+const client = require('prom-client');
+
+// Default system metrics
+client.collectDefaultMetrics();
+
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+    res.set('Content-Type', client.register.contentType);
+    res.end(await client.register.metrics());
+});
+
+app.listen(port,'0.0.0.0', () => {
     console.log(`server is running at port no ${port}`);
 });
 

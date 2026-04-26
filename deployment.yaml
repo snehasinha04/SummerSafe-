@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: summersafe
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: summersafe
+  template:
+    metadata:
+      labels:
+        app: summersafe
+    spec:
+      containers:
+      - name: summersafe
+        image: sinha05/summersafe:v1
+        ports:
+        - containerPort: 8000
